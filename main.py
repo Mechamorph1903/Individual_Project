@@ -5,6 +5,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile
 
+import models  # noqa: F401  (registers the tables on Base)
+from database import Base, engine
+
+Base.metadata.create_all(engine)
+
 app = FastAPI()
 
 
@@ -42,15 +47,14 @@ async def upload_image(file: UploadFile):
     if not blob_path.exists():
         new_blob = True
         blob_dir.mkdir(exist_ok=True)
-        try:
-            # temp file
-            temp_filename = f"{uuid.uuid4()!s}.tmp"
-            temp_path = blob_dir / temp_filename
+        # temp file
+        temp_path = blob_dir / f"{uuid.uuid4()!s}.tmp"
 
+        try:
             temp_path.write_bytes(content)
             os.replace(temp_path, blob_path)
-        except OSError:
-            raise HTTPException(status_code=500, detail="Failed to store image")
+        except OSError as err:
+            raise HTTPException(status_code=500, detail="Failed to store image") from err
         finally:
             temp_path.unlink(missing_ok=True)
 
